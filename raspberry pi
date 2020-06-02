@@ -1,0 +1,118 @@
+import pygame
+import RPi.GPIO as GPIO
+import time
+import email
+import imaplib
+
+temp = '' #temporary
+newemail = False
+
+GPIO.setmode(GPIO.BCM)
+
+red = 10
+yellow = 9
+green = 11
+
+pygame.mixer.init()
+pygame.mixer.music.load("ding.wav")
+
+GPIO.setup(red,GPIO.OUT)
+GPIO.setup(yellow,GPIO.OUT)
+GPIO.setup(green,GPIO.OUT)
+ 
+GPIO_TRIGGER = 18
+GPIO_ECHO = 24
+ 
+GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
+GPIO.setup(GPIO_ECHO, GPIO.IN)
+try:
+    def distance(): #using function from https://tutorials-raspberrypi.com/raspberry-pi-ultrasonic-sensor-hc-sr04/
+        # set Trigger to HIGH
+        GPIO.output(GPIO_TRIGGER, True)
+     
+        # set Trigger after 0.01ms to LOW
+        time.sleep(0.00001)
+        GPIO.output(GPIO_TRIGGER, False)
+     
+        StartTime = time.time()
+        StopTime = time.time()
+     
+        # save StartTime
+        while GPIO.input(GPIO_ECHO) == 0:
+            StartTime = time.time()
+     
+        # save time of arrival
+        while GPIO.input(GPIO_ECHO) == 1:
+            StopTime = time.time()
+     
+        # time difference between start and arrival
+        TimeElapsed = StopTime - StartTime
+        # multiply with the sonic speed (34300 cm/s)
+        # and divide by 2, because there and back
+        distance = (TimeElapsed * 34300) / 2
+     
+        return distance
+
+ #got help from https://stackoverflow.com/questions/7314942/python-imaplib-to-get-gmail-inbox-subjects-titles-and-sender-name
+    while True:
+        while newemail == False:
+            mail = imaplib.IMAP4_SSL('imap.gmail.com')
+            mail.login('*ADD GMAIL ACCOUNT HERE*@gmail.com', '*PUT PASSWORD IN HERE*')
+            mail.list()
+            mail.select('inbox')
+            result, data = mail.uid('search', None, "ALL") # (ALL/UNSEEN)
+            length = len(data[0].split())
+
+            latest_email_uid = data[0].split()[length-1]
+            result, email_data = mail.uid('fetch', latest_email_uid, '(RFC822)')    
+            raw_email = email_data[0][1]
+            raw_email_string = raw_email.decode('utf-8')
+            email_message = email.message_from_string(raw_email_string)
+
+            subject = str(email.header.make_header(email.header.decode_header(email_message['Subject'])))
+            print(subject) 
+            if subject[0:16] == "Wash your hands!":
+                if subject[16:] != temp:
+                    newemail = True
+                    temp = subject[16:]
+            time.sleep(15)        
+                    
+                    
+        GPIO.output(red,True)
+        timer = True
+        count = 20
+        while count > 0:
+            GPIO.output(red,False)
+            dist = distance()
+            if count > 0 and dist < 50:
+                count -=  1
+                if count > 1:
+                    GPIO.output(yellow,True)
+                else:
+                    GPIO.output(yellow,False)
+                    
+            if dist < 50 and timer == False:
+                timer = True
+                count = 20
+            if dist > 50:
+                count = 20
+                timer  = False
+                GPIO.output(red,True)
+                GPIO.output(yellow,False)
+            print ("Measured Distance = %.1f cm" % dist)
+            print ("Timer = %.0f seconds" % count)
+            time.sleep(1)
+        GPIO.output(green,True)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy() == True:
+            continue
+        time.sleep(10)
+        GPIO.output(green,False)
+        
+        newemail = False
+        
+except KeyboardInterrupt:
+    GPIO.output(green,False)
+    GPIO.output(yellow,False)
+    GPIO.output(red,False)
+    print("Done")
