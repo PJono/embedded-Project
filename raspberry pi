@@ -57,7 +57,7 @@ try:
     while True:
         while newemail == False:
             mail = imaplib.IMAP4_SSL('imap.gmail.com')
-            mail.login('patrick.johnston39@gmail.com', 'robert40')
+            mail.login('*ADD GMAIL ACCOUNT HERE*@gmail.com', '*PUT PASSWORD IN HERE*')
             mail.list()
             mail.select('inbox')
             result, data = mail.uid('search', None, "ALL") # (ALL/UNSEEN)
