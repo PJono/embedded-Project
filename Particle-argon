@@ -1,0 +1,45 @@
+int Motion = D2;
+String location = "home";
+int countmin = Time.minute();
+int countsec = Time.second();
+int count = 0;
+bool cooldown = false;
+void setup() 
+{
+    pinMode(Motion,INPUT);
+}
+
+void loop() 
+{
+    int Movement = digitalRead(Motion);
+    if (cooldown == true && countmin+1==Time.minute() && countsec == Time.second()){ //checks a minute has past since the last movement
+        cooldown = false;
+    }
+    
+    if (Movement == 1){
+        delay(1000); 
+        count = count +1; //count used to check if a valid movement has occured since
+    }                     //if it doesn't reach 10 then it was most likely a false positive
+    else
+    {
+        count = 0;
+    }
+    
+    if (count >= 10 && cooldown == false){ //checks if there has been movement and it's been longer than a minute since
+        if (location == "home"){ //if they were home last sets them as away
+            location = "away";
+        }
+        else
+        if (location == "away"){ //if they were away last sets them as home
+            location = "home";
+        }
+        Particle.publish("location",location,PRIVATE);
+        if (Time.minute() == 59){ // prevent an error occuring when the minute loops back to 0
+            countmin = -1;
+        }
+        else
+            countmin = Time.minute(); //records the last time a valid motion was detected
+        countsec = Time.second();
+        cooldown = true;
+    }
+}
